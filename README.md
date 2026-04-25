@@ -6,21 +6,27 @@
 [![Paper](https://img.shields.io/badge/Paper-PDF-red)]()
 [![License](https://img.shields.io/badge/License-MIT-blue)](https://github.com/ggiokkll/DICTRec2026/blob/main/LICENSE)
 
-## P
+## 📦 Model Weights Preparation
 
-Please download the necessary weights, including our pre-trained checkpoints and the `t5-small` backbone model, from [Google Drive](https://drive.google.com/file/d/1zcMJGZJoo1b6VVJcIUKF1Z-42ih0g-ED/view?usp=drive_link). After downloading, please put all contents into the `checkpoints/` directory.
+To reproduce the results, please download the corresponding weights from the links below and place them in their respective directories:
 
-Your directory structure should look like this:
-DICTRec/
-├── checkpoints/
-│   ├── backbone/
-│   └── vq/
-├── code/
-├── data/
-├── src/
-│   ├── t5-small/
-│   └── lgn/
+* **DICTRec Checkpoints:** Download the pre-trained checkpoints from [Google Drive](https://drive.google.com/file/d/1aUes_IddRy5jG7VpPx6tcxqUqyovgCi7/view?usp=drive_link) and place them inside the `checkpoints/` directory.
+* **t5-small Backbone:** Download the pre-trained LLM weights from [Google Drive](https://drive.google.com/file/d/1zcMJGZJoo1b6VVJcIUKF1Z-42ih0g-ED/view?usp=sharing) and place them inside the `t5-small/` directory.
 
+### 📂 Directory Structure
+After downloading, please ensure your project hierarchy is organized exactly as follows:
+
+```text
+📦 DICTRec
+ ├── 📂 checkpoints/           # -> Put DICTRec pre-trained checkpoints here
+ │    ├── 📂 backbone
+ │    └── 📂 vq
+ ├── 📂 src/              # -> Put t5-small backbone weights here
+ │    ├── 📂 lgn
+ │    └── 📂 t5-small
+ ├── 📂 data/
+ ├── 📂 code/
+ └── 📄 README.md
 
 ## An example of Implementation
 
