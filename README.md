@@ -28,6 +28,14 @@ After downloading, please ensure your project hierarchy is organized exactly as 
  └── 📄 README.md
 ```
 
+## 🛠️ Requirements
+
+To install the required dependencies, run the following command:
+
+```bash
+pip install -r requirements.txt
+```
+
 ## An example of Implementation
 
 1. **Full Model**
