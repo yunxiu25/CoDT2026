@@ -4,7 +4,7 @@
 > This repository provides the official implementation of **DICTRec**: an LLM-based generative recommendation framework that integrates IPS causal debiasing and graph-semantic co-evolutionary alignment. It **significantly mitigates** popularity bias to ensure long-tail fairness, while achieving millisecond-level, industrial-grade inference efficiency via MIPS retrieval.
 
 [![Paper](https://img.shields.io/badge/Paper-PDF-red)]()
-[![License](https://github.com/ggiokkll/DICTRec2026/blob/main/LICENSE)]()
+[![License](https://img.shields.io/badge/License-MIT-blue)](https://github.com/ggiokkll/DICTRec2026/blob/main/LICENSE)
 
 
 
