@@ -8,7 +8,6 @@ import time
 
 
 def get_popularity(data_name, item_num):
-    """计算项目的流行度用于因果去噪IPS"""
     pop = np.zeros(item_num)
     try:
         with open(f'../data/{data_name}/train.txt', 'r') as f:
@@ -120,21 +119,17 @@ def codebook_tokens(n_book, n_token):
 
 
 def similarity_score(predicts, item_emb, item_id):
-    # ==================== [神级加速：全矩阵乘法计算相似度] ====================
-    # L2 归一化后计算点积，等同于余弦相似度，避免了极其缓慢的 for 循环
     predicts_norm = torch.nn.functional.normalize(predicts, p=2, dim=1)
     item_emb_norm = torch.nn.functional.normalize(item_emb, p=2, dim=1)
 
     score = torch.matmul(predicts_norm, item_emb_norm.T)
 
-    # 批量应用历史物品掩码
     batch = predicts.shape[0]
     for i in range(batch):
         items = item_id[i].split(" ")
         items = [int(item) for item in items]
         score[i, items] = -1e9
     return score
-    # ========================================================================
 
 
 def MSE_distance(predicts, item_emb):
