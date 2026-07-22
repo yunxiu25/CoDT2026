@@ -20,7 +20,6 @@ def learning(args):
     user_emb = LightGCN['embedding_user.weight']
     item_emb = LightGCN['embedding_item.weight']
 
-    # 提取物品流行度 (用于因果干预 IPS)
     pop_weights = utils.get_popularity(data_name, item_emb.shape[0]).to(device)
 
     if args.vq_model == 'RQ':
@@ -29,10 +28,9 @@ def learning(args):
         item_vq = model.ResidualVQVAE(input_dim=item_emb.shape[1], dim=codebook_dim, n_embedding=args.n_token,
                                       m_book=args.n_book)
     elif args.vq_model == 'MQ':
-        user_vq = model.MQ(input_dim=user_emb.shape[1], dim=codebook_dim, n_embedding=args.n_token, m_book=args.n_book)
-        item_vq = model.MQ(input_dim=item_emb.shape[1], dim=codebook_dim, n_embedding=args.n_token, m_book=args.n_book)
+        user_vq = model.DQ(input_dim=user_emb.shape[1], dim=codebook_dim, n_embedding=args.n_token, m_book=args.n_book)
+        item_vq = model.DQ(input_dim=item_emb.shape[1], dim=codebook_dim, n_embedding=args.n_token, m_book=args.n_book)
 
-    # 训练 Item VQ (加入流行度权重及消融控制)
     item_vq_name = 'item-' + vq_name
     if args.train_vq:
         current_pop = None if args.no_ips else pop_weights
@@ -41,7 +39,6 @@ def learning(args):
     item_vq.load_state_dict(torch.load('../checkpoints/vq/' + item_vq_name + '.pth'))
     item_vq.to(device)
 
-    # 训练 User VQ (用户侧权重为1即可)
     user_vq_name = 'user-' + vq_name
     if args.train_vq:
         train.vqvae(user_vq, user_vq_name, device, user_emb, n_embedding=args.n_token, m_book=args.n_book,
@@ -49,7 +46,6 @@ def learning(args):
     user_vq.load_state_dict(torch.load('../checkpoints/vq/' + user_vq_name + '.pth'))
     user_vq.to(device)
 
-    # -------------------- 生成最终的静态离散 Token 文件 -------------------------
     for phase in ['train', 'test']:
         file_path = f'../data/{data_name}/{phase}.txt'
         with open(file_path, 'r') as f:
