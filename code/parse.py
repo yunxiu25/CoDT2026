@@ -52,7 +52,7 @@ def parse_args():
     # --------------- general --------------------
     parser.add_argument('--cuda', type=int, default=0, help="the used cuda")
     parser.add_argument('--seed', type=int, default=3407, help='random seed')
-    parser.add_argument('--dataset', type=str, default='yelp',
-                        help="available datasets: [LastFM, ML1M, yelp]")
+    parser.add_argument('--dataset', type=str, default='yelp2018',
+                        help="available datasets: [LastFM, ML1M, yelp2018]")
 
     return parser.parse_args()
