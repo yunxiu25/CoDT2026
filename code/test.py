@@ -16,7 +16,7 @@ def backbone(data_name, test_rec_loader, user_emb, item_emb, item_num, args, dev
     t5.eval()
     linear_projection.eval()
 
-    item_vq = model.MQ(input_dim=item_emb.shape[1], dim=512, n_embedding=args.n_token, m_book=args.n_book)
+    item_vq = model.DQ(input_dim=item_emb.shape[1], dim=512, n_embedding=args.n_token, m_book=args.n_book)
     try:
         item_vq.load_state_dict(torch.load('../checkpoints/vq/co-evolved-item-MQ-' + data_name + '.pth'))
     except FileNotFoundError:
@@ -24,7 +24,6 @@ def backbone(data_name, test_rec_loader, user_emb, item_emb, item_num, args, dev
     item_vq.to(device)
     item_vq.eval()
 
-    # [算法升级]：对数平滑的长尾惩罚
     pop = pop_weights.to(device)
     pop_log = torch.log(pop + 1.0)
     pop_penalty = pop_log / (pop_log.max() + 1e-8)
@@ -57,7 +56,7 @@ def backbone(data_name, test_rec_loader, user_emb, item_emb, item_num, args, dev
             metrics[j, :] += metr
         n_batch += batch
 
-    print("\nDICTRec Evaluation Results (@10, @20, @30):")
+    print("\nCoDT Evaluation Results (@10, @20, @30):")
     for j in range(metrics.shape[0]):
         print(
             f'test_hit@{((j + 1) * 10)} = {metrics[j, 0].item() / n_batch:.4f}, test_ndcg@{((j + 1) * 10)} = {metrics[j, 1].item() / n_batch:.4f}')
