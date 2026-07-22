@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 
 
-class MQ(nn.Module):
+class   DQ(nn.Module):
     def __init__(self, input_dim, dim, n_embedding, m_book, mask_ratio=0.2):
-        super(MQ, self).__init__()
+        super(DQ, self).__init__()
         self.m_book = m_book
         self.encoders = nn.ModuleList()
         self.codebooks = nn.ModuleList()
@@ -34,14 +34,12 @@ class MQ(nn.Module):
         patch = int(e / self.m_book)
         res_list, ce_list = [], []
 
-        curr_x = x  # 避免修改原始输入
+        curr_x = x
         for m in range(self.m_book):
-            # [修复 Bug 1]：使用 rand 替代 bernoulli_ 避免 In-place 报错
             mask = (torch.rand(e, device=x.device) < self.mask_ratio)
             mask[:m * patch] = False
             mask[(m + 1) * patch - 1:] = False
 
-            # 使用 out-of-place 的张量加法
             curr_x = torch.masked_fill(curr_x, mask, 0.0)
             curr_x = curr_x + self.pos.weight
 
@@ -59,7 +57,6 @@ class MQ(nn.Module):
         return self.decoder(decoder_input), res_list, ce_list
 
     def valid(self, x):
-        # [修复 Bug]：使用 out-of-place 加法
         curr_x = x + self.pos.weight.data
         res_list, ce_list = [], []
         for m in range(self.m_book):
@@ -74,10 +71,6 @@ class MQ(nn.Module):
         return self.decoder(torch.sum(torch.stack(ce_list, dim=0), dim=0)), res_list, ce_list
 
     def encode(self, x):
-        # [修复设备冲突 Bug]：强制将输入的 CPU 张量转移到与模型权重相同的设备(GPU)上
-        x = x.to(self.pos.weight.device)
-
-        # [修复 Bug]：使用 out-of-place 加法
         curr_x = x + self.pos.weight.data
         nearest_neighbor_list = []
         for m in range(self.m_book):
