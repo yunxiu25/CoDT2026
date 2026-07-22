@@ -104,7 +104,7 @@ def backbone(data_name, train_rec_loader, valid_rec_loader, user_emb, item_emb, 
     t5.to(device)
     linear_projection.to(device)
 
-    item_vq = model.MQ(input_dim=item_emb.shape[1], dim=512, n_embedding=args.n_token, m_book=args.n_book)
+    item_vq = model.DQ(input_dim=item_emb.shape[1], dim=512, n_embedding=args.n_token, m_book=args.n_book)
     if args.train_from_checkpoint:
         try:
             item_vq.load_state_dict(torch.load('../checkpoints/vq/co-evolved-item-MQ-' + data_name + '.pth'))
