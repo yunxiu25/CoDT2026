@@ -36,11 +36,11 @@ def parse_args():
     parser.add_argument('--vq_model', type=str, default='MQ', help="available indexing model: [RQ, MQ]")
 
     # --------------- CoDT --------------------
-    parser.add_argument('--gamma', type=float, default=0.5,  # 默认值：0.5
+    parser.add_argument('--gamma', type=float, default=0.5, 
                         help="Gamma parameter for Inverse Propensity Scoring (IPS) in VQ")
     parser.add_argument('--fair_lambda', type=float, default=0.1,
                         help="Penalty weight for Popularity in Fairness-aware Retrieval")
-    parser.add_argument('--co_evolve_weight', type=float, default=0.1,  # 默认值0.1
+    parser.add_argument('--co_evolve_weight', type=float, default=0.1, 
                         help="Weight for Codebook-T5 Co-evolution alignment loss")
     parser.add_argument('--no_ips', action='store_true', default=False,
                         help="Ablation: Disable IPS causal debiasing in VQ (set pop_weights to None)")
