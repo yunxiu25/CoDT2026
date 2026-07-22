@@ -37,7 +37,7 @@ def parse_args():
 
     # --------------- CoDT --------------------
     parser.add_argument('--gamma', type=float, default=0.5, 
-                        help="Gamma parameter for Inverse Propensity Scoring (IPS) in VQ")
+                        help="Gamma parameter in VQ")
     parser.add_argument('--fair_lambda', type=float, default=0.1,
                         help="Penalty weight for Popularity in Fairness-aware Retrieval")
     parser.add_argument('--co_evolve_weight', type=float, default=0.1, 
