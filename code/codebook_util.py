@@ -1,22 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Quantitative codebook-utilization analysis (Reviewer 2, Major Comment 1; Reviewer 3, W3).
-
-Metrics per codebook level k in {1,2,3}:
-  - #distinct used codes / L, proportion of unused codes
-  - assignment entropy (bits) and perplexity over code usage
-Whole-sequence metrics:
-  - #distinct token sequences, #items whose full (c1,c2,c3) sequence collides
-  - collision rate overall and per popularity group (Head 20% / Torso 30% / Tail 50%)
-
-Variants compared (per dataset):
-  - TokenRec (static, unweighted VQ)      : ../TokenRec-main-oral checkpoints
-  - CoDT Stage-1  (re-weighted VQ only)   : item-MQ-lgn-*-64.pth (this repo, trained w/ pop weights)
-  - CoDT Full     (+ co-evolution)        : co-evolved-item-MQ-*.pth
-  - w/o Re-weighting (unweighted VQ, this repo training recipe), seeds [42, 3407, 2026]
-
-Outputs: codebook_util_results.json + console tables.
-"""
 import json
 import sys
 import numpy as np
@@ -25,9 +6,7 @@ import torch
 import model
 import utils
 
-# compat shim: newer kmeans_pytorch has no `iter_limit` and can loop forever on
-# NaN center-shift; replace with a torch-native k-means capped at 30 iterations
-# (same semantics as the original recipe's iter_limit=30).
+
 import kmeans_pytorch as _kmp
 
 
