@@ -1,67 +1,79 @@
-# CoDT: Co-evolution based Debiased Tokenization for LLM-based Recommendation
+```markdown
+# CoDT: Co-evolving Debiased Tokenization for LLM-based Recommendation
 
-> This repository provides the official implementation of **CoDT**: an LLM-based recommendation framework that integrates popularity-aware re-weighting and dynamic graph-semantic co-evolutionary alignment. It effectively mitigates popularity bias to improve long-tail representation, while achieving millisecond-level inference efficiency via dense matching retrieval.
+> Official implementation of **CoDT**: an LLM-based recommendation framework that integrates popularity-aware re-weighting and dynamic co-evolutionary alignment to mitigate codebook collapse and improve long-tail recommendation, while achieving millisecond-level inference via dense retrieval.
 
-[![Paper](https://img.shields.io/badge/Paper-PDF-red)]()
-[![License](https://img.shields.io/badge/License-MIT-blue)](https://github.com/ggiokkll/DICTRec2026/blob/main/LICENSE)
+## Model Weights Preparation
 
-## 📦 Model Weights Preparation
+Download the pre-trained checkpoints from [Google Drive](https://drive.google.com/file/d/1aUes_IddRy5jG7VpPx6tcxqUqyovgCi7/view?usp=drive_link) and place them inside `checkpoints/`. Download the t5-small backbone from [Google Drive](https://drive.google.com/file/d/1zcMJGZJoo1b6VVNcIUKF1Z-42ih0g-ED/view?usp=sharing) and place it inside `src/t5-small/`.
 
-To reproduce the results, please download the corresponding weights from the links below and place them in their respective directories:
-
-* **CoDT Checkpoints:** Download the pre-trained checkpoints from [Google Drive](https://drive.google.com/file/d/1aUes_IddRy5jG7VpPx6tcxqUqyovgCi7/view?usp=drive_link) and place them inside the `checkpoints/` directory.
-* **t5-small Backbone:** Download the pre-trained LLM weights from [Google Drive](https://drive.google.com/file/d/1zcMJGZJoo1b6VVJcIUKF1Z-42ih0g-ED/view?usp=sharing) and place them inside the `t5-small/` directory.
-
-### 📂 Directory Structure
-After downloading, please ensure your project hierarchy is organized exactly as follows:
+## Directory Structure
 
 ```text
-📦 DICTRec
- ├── 📂 checkpoints/           # -> Put DICTRec pre-trained checkpoints here
- │    ├── 📂 backbone
- │    └── 📂 vq
- ├── 📂 src/              # -> Put t5-small backbone weights here
- │    ├── 📂 lgn
- │    └── 📂 t5-small
- ├── 📂 data/
- ├── 📂 code/
- └── 📄 README.md
+CoDT
+ ├── checkpoints/           # pre-trained CoDT checkpoints
+ │    ├── backbone/
+ │    └── vq/
+ ├── src/
+ │    ├── lgn/              # LightGCN embeddings
+ │    └── t5-small/         # LLM backbone weights
+ ├── data/                  # preprocessed dataset splits
+ ├── code/                  # training & evaluation scripts
+ └── README.md
 ```
 
-## 🛠️ Requirements
-
-To install the required dependencies, run the following command:
+## Requirements
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## An example of Implementation
+## Training
 
-1. **Full Model**
-```
-python cd code
+1. **Full CoDT**
+
+```bash
+cd code
 python main.py --dataset LastFM --vq --train_vq
 ```
 
-2. **w/o Re-weighting**
-```
+2. **Ablation: w/o Re-weighting**
+
+```bash
 python main.py --dataset LastFM --vq --train_vq --no_ips
 ```
 
-3. **w/o Co-evolution**
-```
+3. **Ablation: w/o Co-evolution**
+
+```bash
 python main.py --dataset LastFM --vq --train_vq --freeze_codebook
 ```
 
-4. **w/o Alignment**
-```
+4. **Ablation: w/o Alignment**
+
+```bash
 python main.py --dataset LastFM --vq --train_vq --no_align
 ```
 
-4. **Evaluation**
-```
+## Evaluation
+
+5. **Overall Performance**
+
+```bash
 python main.py --dataset LastFM --no_train
 ```
 
+6. **Group-Normalized Long-Tail Evaluation** (Table 5 in the paper)
 
+```bash
+python groupnorm_eval.py --repo . --dataset ML1M --model seq --fair_lambda 0.1 --tag codt --save_lists
+python groupnorm_eval.py --repo . --dataset ML1M --model lightgcn --tag lightgcn
+```
+
+7. **Codebook Utilization Statistics** (Table 9 in the paper)
+
+```bash
+python codebook_util.py
+```
+
+```
