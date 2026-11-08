@@ -1,16 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Group-normalized long-tail evaluation (Reviewer 2, Major Comment 2).
-
-For each model (CoDT / TokenRec / LightGCN) and dataset:
-  - Recall@20 within each popularity group = hits_g / (#test targets in g)
-  - average exposure per item within each group = sum(exposure in g) / |items in g|
-  - catalog coverage = #unique recommended items / |I|
-  - hit proportions (old metric) for cross-checking with the submitted Fig. 3
-
-Run one process per (repo, dataset):
-  python groupnorm_eval.py --repo <repo_code_dir> --dataset ML1M [--model seq|lightgcn] [--fair_lambda 0.1]
-"""
 import argparse
 import inspect
 import json
