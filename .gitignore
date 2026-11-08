@@ -12,7 +12,7 @@ checkpoints/
 __pycache__/
 *.pyc
 
-# 排除数据集（如果有的话）
+# 排除数据集
 data/
 
 src/
