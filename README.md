@@ -62,14 +62,14 @@ python main.py --dataset LastFM --vq --train_vq --no_align
 python main.py --dataset LastFM --no_train
 ```
 
-6. **Group-Normalized Long-Tail Evaluation** (Table 5 in the paper)
+6. **Group-Normalized Long-Tail Evaluation** 
 
 ```bash
 python groupnorm_eval.py --repo . --dataset ML1M --model seq --fair_lambda 0.1 --tag codt --save_lists
 python groupnorm_eval.py --repo . --dataset ML1M --model lightgcn --tag lightgcn
 ```
 
-7. **Codebook Utilization Statistics** (Table 9 in the paper)
+7. **Codebook Utilization Statistics** 
 
 ```bash
 python codebook_util.py
