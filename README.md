@@ -1,4 +1,3 @@
-```markdown
 # CoDT: Co-evolving Debiased Tokenization for LLM-based Recommendation
 
 > Official implementation of **CoDT**: an LLM-based recommendation framework that integrates popularity-aware re-weighting and dynamic co-evolutionary alignment to mitigate codebook collapse and improve long-tail recommendation, while achieving millisecond-level inference via dense retrieval.
@@ -76,4 +75,3 @@ python groupnorm_eval.py --repo . --dataset ML1M --model lightgcn --tag lightgcn
 python codebook_util.py
 ```
 
-```
