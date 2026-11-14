@@ -238,7 +238,3 @@ def main():
                   f"entropy={np.mean(ent):.2f}±{np.std(ent):.2f} "
                   f"coll={np.mean(coll)*100:.1f}%±{np.std(coll)*100:.1f}% "
                   f"tail_coll={np.mean(tailc)*100:.1f}%±{np.std(tailc)*100:.1f}%")
-
-
-if __name__ == "__main__":
-    main()
