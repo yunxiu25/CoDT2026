@@ -211,12 +211,3 @@ def run_lightgcn():
     res = summarize(rec_lists, targets, grp, item_num, sizes)
     res["model"] = "LightGCN"
     return res
-
-
-if __name__ == "__main__":
-    out = run_lightgcn() if cli.model == "lightgcn" else run_seq()
-    print(json.dumps(out, indent=2))
-    fn = f"groupnorm_{cli.tag or cli.model}_{cli.dataset}.json"
-    with open(fn, "w", encoding="utf-8") as f:
-        json.dump(out, f, indent=2)
-    print("saved ->", fn)
