@@ -1,12 +1,11 @@
+import os
 import json
-import sys
+from collections import Counter
 import numpy as np
 import torch
 
 import model
 import utils
-
-
 import kmeans_pytorch as _kmp
 
 
@@ -14,7 +13,6 @@ def _torch_kmeans(X, num_clusters, distance="euclidean", **kw):
     device = kw.get("device", X.device)
     X = X.to(device).float()
     n = X.shape[0]
-    # kmeans++ style init
     first = torch.randint(n, (1,), device=device)
     centers = [X[first]]
     closest = ((X - centers[0]) ** 2).sum(1)
@@ -24,7 +22,7 @@ def _torch_kmeans(X, num_clusters, distance="euclidean", **kw):
         centers.append(X[idx])
         closest = torch.minimum(closest, ((X - centers[-1]) ** 2).sum(1))
     C = torch.cat(centers, dim=0)
-    for _ in range(30):  # iter_limit=30
+    for _ in range(30):
         d = torch.cdist(X, C)
         assign = d.argmin(1)
         newC = torch.zeros_like(C)
@@ -43,14 +41,14 @@ def _torch_kmeans(X, num_clusters, distance="euclidean", **kw):
 
 
 _kmp.kmeans = _torch_kmeans
-
 import train  # noqa: E402
 
-ORAL = r"..\..\TokenRec-main-oral\TokenRec-main"
+CKPT_DIR = os.environ.get("CODT_CKPT_DIR", "../checkpoints/vq")
+TOKENREC_DIR = os.environ.get("TOKENREC_CKPT_DIR", "../checkpoints/tokenrec_official")
 DATASETS = ["ML1M", "LastFM"]
 K_BOOKS = 3
 N_TOKEN = 256
-NO_RW_SEEDS = [42, 3407, 2026]
+SEEDS = [42, 3407, 2026]
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -76,9 +74,8 @@ def level_metrics(tokens, n_token=N_TOKEN):
 
 
 def sequence_metrics(tokens, item_to_group):
-    """Full-sequence collision analysis, overall + per group."""
+    """Full-sequence collision analysis, overall + per popularity group."""
     seqs = [tuple(t) for t in tokens]
-    from collections import Counter
     cnt = Counter(seqs)
     n = len(seqs)
     colliding = sum(1 for s in seqs if cnt[s] > 1)
@@ -95,16 +92,27 @@ def sequence_metrics(tokens, item_to_group):
         res[gname] = {
             "n_items": g_n,
             "n_colliding_items": g_coll,
+            "n_distinct_sequences": len({seqs[i] for i in idx}),
             "collision_rate": (g_coll / g_n) if g_n else 0.0,
-            "distinct_sequences": len({seqs[i] for i in idx}),
         }
     return res
+
+
+def build_group_map(pop, n_items):
+    order = np.argsort(-pop)
+    h = int(n_items * 0.20)
+    t = h + int(n_items * 0.30)
+    head_set, torso_set = set(order[:h]), set(order[h:t])
+    item_to_group = {
+        i: (0 if i in head_set else (1 if i in torso_set else 2))
+        for i in range(n_items)
+    }
+    return item_to_group, {"head": h, "torso": t - h, "tail": n_items - t}
 
 
 def encode_items(vq_ckpt_path, item_emb):
     mq = model.MQ(input_dim=item_emb.shape[1], dim=512, n_embedding=N_TOKEN, m_book=K_BOOKS)
     sd = torch.load(vq_ckpt_path, map_location="cpu")
-    # official TokenRec release: single shared encoder + singular codebook names
     new_sd = {}
     for k, v in sd.items():
         if k.startswith("codebook."):
@@ -122,17 +130,38 @@ def encode_items(vq_ckpt_path, item_emb):
     return toks
 
 
-def train_no_rw(data_name, item_emb, seed):
-    """Train an unweighted-VQ (w/o re-weighting) variant and return its token assignments."""
+def eval_or_train_variant(variant_tag, data_name, item_emb, pop_weights, seed, default_ckpt):
+    """Load seed-specific checkpoint if available; otherwise fall back to default checkpoint or train."""
+    seed_ckpt = os.path.join(CKPT_DIR, f"{variant_tag}-{data_name}-s{seed}.pth")
+    if os.path.exists(seed_ckpt):
+        return encode_items(seed_ckpt, item_emb)
+    if default_ckpt and os.path.exists(default_ckpt):
+        return encode_items(default_ckpt, item_emb)
     utils.set_seed(seed)
     mq = model.MQ(input_dim=item_emb.shape[1], dim=512, n_embedding=N_TOKEN, m_book=K_BOOKS)
-    name = f"noRW-item-MQ-{data_name}-s{seed}"
+    name = f"{variant_tag}-{data_name}-s{seed}"
     train.vqvae(mq, name, device, item_emb.cpu(), n_embedding=N_TOKEN, m_book=K_BOOKS,
-                pop_weights=None)
+                pop_weights=pop_weights)
     mq.to(device).eval()
     with torch.no_grad():
-        toks = mq.encode(item_emb.to(device)).cpu().numpy()
-    return toks
+        return mq.encode(item_emb.to(device)).cpu().numpy()
+
+
+def summarize_seeds(seed_records):
+    used = [sum(l["used_codes"] for l in r["per_level"]) for r in seed_records]
+    ent = [np.mean([l["entropy_bits"] for l in r["per_level"]]) for r in seed_records]
+    all_c = [r["sequence"]["collision_rate"] * 100 for r in seed_records]
+    head_c = [r["sequence"]["head"]["collision_rate"] * 100 for r in seed_records]
+    torso_c = [r["sequence"]["torso"]["collision_rate"] * 100 for r in seed_records]
+    tail_c = [r["sequence"]["tail"]["collision_rate"] * 100 for r in seed_records]
+    return (
+        f"used={np.mean(used):.0f}±{np.std(used, ddof=1 if len(used)>1 else 0):.0f}/768 "
+        f"ent={np.mean(ent):.2f}±{np.std(ent, ddof=1 if len(ent)>1 else 0):.2f}b "
+        f"coll={np.mean(all_c):.1f}±{np.std(all_c, ddof=1 if len(all_c)>1 else 0):.1f}% "
+        f"(H {np.mean(head_c):.1f}±{np.std(head_c, ddof=1 if len(head_c)>1 else 0):.1f}% "
+        f"T {np.mean(torso_c):.1f}±{np.std(torso_c, ddof=1 if len(torso_c)>1 else 0):.1f}% "
+        f"L {np.mean(tail_c):.1f}±{np.std(tail_c, ddof=1 if len(tail_c)>1 else 0):.1f}%)"
+    )
 
 
 def main():
@@ -142,99 +171,54 @@ def main():
         item_emb = lgn["embedding_item.weight"].float()
         n_items = item_emb.shape[0]
 
-        pop = utils.get_popularity(ds, n_items).numpy()
-        order = np.argsort(-pop)
-        h = int(n_items * 0.20)
-        t = h + int(n_items * 0.30)
-        item_to_group = {}
-        for i in range(n_items):
-            item_to_group[i] = 0 if i in set(order[:h]) else (1 if i in set(order[h:t]) else 2)
+        pop_tensor = utils.get_popularity(ds, n_items)
+        item_to_group, group_counts = build_group_map(pop_tensor.numpy(), n_items)
+        pop_weights = 1.0 / torch.pow(pop_tensor.float() + 1.0, 0.5)
 
-        variants = {
-            "TokenRec(static-unweighted)": rf"{ORAL}\checkpoints\vq\item-MQ-lgn-{ds}-64.pth",
-            "CoDT-Stage1(reweighted)": f"../checkpoints/vq/item-MQ-lgn-{ds}-64.pth",
-            "CoDT-Full(co-evolved)": f"../checkpoints/vq/co-evolved-item-MQ-{ds}.pth",
+        ds_res = {"n_items": n_items, "groups": group_counts}
+
+        # 1. Official TokenRec static checkpoint (single reference)
+        tr_ckpt = os.path.join(TOKENREC_DIR, f"item-MQ-lgn-{ds}-64.pth")
+        toks_tr = encode_items(tr_ckpt, item_emb)
+        ds_res["TokenRec(official)"] = {
+            "per_level": level_metrics(toks_tr),
+            "sequence": sequence_metrics(toks_tr, item_to_group),
         }
-        ds_res = {"n_items": n_items, "groups": {"head": h, "torso": t - h, "tail": n_items - t}}
 
-        for name, ck in variants.items():
-            toks = encode_items(ck, item_emb)
-            ds_res[name] = {
-                "per_level": level_metrics(toks),
-                "sequence": sequence_metrics(toks, item_to_group),
-                "tokens": toks.tolist(),
-            }
-            print(f"[{ds}] {name}: "
-                  f"used L1/L2/L3 = {[level_metrics(toks)[i]['used_codes'] for i in range(3)]}")
-
-        # cross-check against the npy used for Fig.5 (CoDT coords)
-        try:
-            ref = np.load(f"codt_coords_{ds}.npy")
-            full = np.array(ds_res["CoDT-Full(co-evolved)"]["tokens"])
-            match = float((ref == full).all(axis=1).mean())
-            ds_res["fig5_npy_match_ratio"] = match
-            print(f"[{ds}] Fig.5 npy match ratio with co-evolved ckpt: {match:.4f}")
-        except Exception as e:
-            ds_res["fig5_npy_match_ratio"] = str(e)
+        # 2. Multi-seed CoDT recipe variants (w/o Re-weight, Stage-1, CoDT-Full)
+        recipe_configs = [
+            ("w/o-Re-weight", "noRW-item-MQ", None, None),
+            ("CoDT-Stage1", "stage1-item-MQ", pop_weights, os.path.join(CKPT_DIR, f"item-MQ-lgn-{ds}-64.pth")),
+            ("CoDT-Full", "co-evolved-item-MQ", pop_weights, os.path.join(CKPT_DIR, f"co-evolved-item-MQ-{ds}.pth")),
+        ]
+        for label, tag, pw, fallback_ckpt in recipe_configs:
+            seed_list = []
+            for seed in SEEDS:
+                toks = eval_or_train_variant(tag, ds, item_emb, pw, seed, fallback_ckpt)
+                seed_list.append({
+                    "seed": seed,
+                    "per_level": level_metrics(toks),
+                    "sequence": sequence_metrics(toks, item_to_group),
+                })
+            ds_res[label] = seed_list
 
         results[ds] = ds_res
 
-    # w/o re-weighting variants across seeds (trained fresh; unweighted objective)
-    for ds in DATASETS:
-        lgn = torch.load(f"../src/lgn/lgn-{ds}-64.pth.tar", map_location="cpu")
-        item_emb = lgn["embedding_item.weight"].float()
-        n_items = item_emb.shape[0]
-        pop = utils.get_popularity(ds, n_items).numpy()
-        order = np.argsort(-pop)
-        h = int(n_items * 0.20)
-        t = h + int(n_items * 0.30)
-        item_to_group = {}
-        for i in range(n_items):
-            item_to_group[i] = 0 if i in set(order[:h]) else (1 if i in set(order[h:t]) else 2)
-
-        seed_res = []
-        for seed in NO_RW_SEEDS:
-            print(f"[{ds}] training w/o re-weighting VQ, seed={seed} ...")
-            toks = train_no_rw(ds, item_emb, seed)
-            seed_res.append({
-                "seed": seed,
-                "per_level": level_metrics(toks),
-                "sequence": sequence_metrics(toks, item_to_group),
-            })
-        results[ds]["w/o-Re-weighting(seeds)"] = seed_res
-
-    # strip raw token lists from json to keep it readable
-    slim = json.loads(json.dumps(results).replace('"tokens":', '"_tokens":'))
-    for ds in DATASETS:
-        for k in list(slim[ds].keys()):
-            if isinstance(slim[ds][k], dict) and "_tokens" in slim[ds][k]:
-                del slim[ds][k]["_tokens"]
     with open("codebook_util_results.json", "w", encoding="utf-8") as f:
-        json.dump(slim, f, indent=2)
+        json.dump(results, f, indent=2)
     print("\nSaved -> codebook_util_results.json")
 
-    # console summary
     for ds in DATASETS:
         print(f"\n===== {ds} =====")
-        for name in ["TokenRec(static-unweighted)", "CoDT-Stage1(reweighted)",
-                     "CoDT-Full(co-evolved)"]:
-            r = results[ds][name]
-            lv = r["per_level"]
-            sq = r["sequence"]
-            print(f"{name:32s} used={sum(l['used_codes'] for l in lv)}/768 "
-                  f"entropy={np.mean([l['entropy_bits'] for l in lv]):.2f}b "
-                  f"ppl={np.mean([l['perplexity'] for l in lv]):.1f} "
-                  f"coll={sq['collision_rate']*100:.1f}% "
-                  f"(head {sq['head']['collision_rate']*100:.1f}% "
-                  f"torso {sq['torso']['collision_rate']*100:.1f}% "
-                  f"tail {sq['tail']['collision_rate']*100:.1f}%)")
-        seeds = results[ds].get("w/o-Re-weighting(seeds)", [])
-        if seeds:
-            coll = [s["sequence"]["collision_rate"] for s in seeds]
-            used = [sum(l["used_codes"] for l in s["per_level"]) for s in seeds]
-            ent = [np.mean([l["entropy_bits"] for l in s["per_level"]]) for s in seeds]
-            tailc = [s["sequence"]["tail"]["collision_rate"] for s in seeds]
-            print(f"w/o-Re-weighting (3 seeds)      used={np.mean(used):.1f}±{np.std(used):.1f} "
-                  f"entropy={np.mean(ent):.2f}±{np.std(ent):.2f} "
-                  f"coll={np.mean(coll)*100:.1f}%±{np.std(coll)*100:.1f}% "
-                  f"tail_coll={np.mean(tailc)*100:.1f}%±{np.std(tailc)*100:.1f}%")
+        for label in ["w/o-Re-weight", "CoDT-Stage1", "CoDT-Full"]:
+            print(f"{label:20s} {summarize_seeds(results[ds][label])}")
+        tr = results[ds]["TokenRec(official)"]
+        lv, sq = tr["per_level"], tr["sequence"]
+        print(
+            f"{'TokenRec(official)':20s} used={sum(l['used_codes'] for l in lv)}/768 "
+            f"ent={np.mean([l['entropy_bits'] for l in lv]):.2f}b "
+            f"coll={sq['collision_rate']*100:.1f}% "
+            f"(H {sq['head']['collision_rate']*100:.1f}% "
+            f"T {sq['torso']['collision_rate']*100:.1f}% "
+            f"L {sq['tail']['collision_rate']*100:.1f}%)"
+        )
